@@ -80,6 +80,9 @@ class InterfazGrafica:
         self.queue = Queue()
         self.algoritmo_seleccionado = tk.StringVar(value="Round Robin")
 
+        # Agregar un atributo para almacenar el hilo de la simulación
+        self.simulacion_thread = None
+
         self.crear_widgets()
 
     def crear_widgets(self):
@@ -115,33 +118,21 @@ class InterfazGrafica:
         ttk.Combobox(frame_configuracion, textvariable=self.algoritmo_seleccionado,
                      values=["Round Robin", "SJF", "FIFO", "Prioridades"]).grid(row=0, column=1)
 
-    def agregar_proceso(self):
-        nombre = self.entry_nombre.get()
-        tiempo_rafaga = int(self.entry_tiempo_rafaga.get())
-        prioridad = int(self.entry_prioridad.get())
-        tiempo_llegada = int(self.entry_tiempo_llegada.get())
-
-        proceso = Proceso(nombre, tiempo_llegada, tiempo_rafaga, prioridad)
-        self.procesos.append(proceso)
-
-        self.tree_procesos.insert("", "end", values=(nombre, tiempo_rafaga, prioridad, tiempo_llegada))
-
     def iniciar_simulacion(self):
         self.completados = []  # Reiniciar la lista de procesos completados
         algoritmo_seleccionado = self.algoritmo_seleccionado.get()
 
-        for _ in range(2):  # Ejecutar dos veces para demostrar que los valores originales no se afectan
-            # Hacer una copia de los procesos al inicio de la simulación
-            procesos_copia = [Proceso(p.name, p.arrival_time, p.burst_time, p.priority) for p in self.procesos]
+        # Hacer una copia de los procesos al inicio de la simulación
+        procesos_copia = [Proceso(p.name, p.arrival_time, p.burst_time, p.priority) for p in self.procesos]
 
-            if algoritmo_seleccionado == "Round Robin":
-                round_robin(procesos_copia.copy(), 2, self.completados, self.queue)
-            elif algoritmo_seleccionado == "SJF":
-                sjf(procesos_copia.copy(), self.completados, self.queue)
-            elif algoritmo_seleccionado == "FIFO":
-                fifo(procesos_copia.copy(), self.completados, self.queue)
-            elif algoritmo_seleccionado == "Prioridades":
-                prioridades(procesos_copia.copy(), self.completados, self.queue)
+        if algoritmo_seleccionado == "Round Robin":
+            round_robin(procesos_copia.copy(), 2, self.completados, self.queue)
+        elif algoritmo_seleccionado == "SJF":
+            sjf(procesos_copia.copy(), self.completados, self.queue)
+        elif algoritmo_seleccionado == "FIFO":
+            fifo(procesos_copia.copy(), self.completados, self.queue)
+        elif algoritmo_seleccionado == "Prioridades":
+            prioridades(procesos_copia.copy(), self.completados, self.queue)
 
         self.root.after(0, self.mostrar_resultados)
 
@@ -154,6 +145,42 @@ class InterfazGrafica:
             self.root.after(100, self.mostrar_resultados)
         except Empty:
             pass  # No hay más resultados, detener la iteración automática
+
+    def agregar_proceso(self):
+        nombre = self.entry_nombre.get()
+        tiempo_rafaga = int(self.entry_tiempo_rafaga.get())
+        prioridad = int(self.entry_prioridad.get())
+        tiempo_llegada = int(self.entry_tiempo_llegada.get())
+
+        proceso = Proceso(nombre, tiempo_llegada, tiempo_rafaga, prioridad)
+        self.procesos.append(proceso)
+
+        self.tree_procesos.insert("", "end", values=(nombre, tiempo_rafaga, prioridad, tiempo_llegada))
+
+        # Si ya hay una simulación en ejecución, iniciar un hilo adicional para la simulación con el nuevo proceso
+        if self.simulacion_thread and self.simulacion_thread.is_alive():
+            t = Thread(target=self.iniciar_simulacion_nuevo_proceso, args=(proceso,))
+            t.start()
+        else:
+            # Si no hay simulación en ejecución, iniciar la simulación principal
+            # self.iniciar_simulacion()
+            pass
+
+    def iniciar_simulacion_nuevo_proceso(self, nuevo_proceso):
+        # Hacer una copia de los procesos antes de ejecutar la simulación con el nuevo proceso
+        procesos_copia = [Proceso(p.name, p.arrival_time, p.burst_time, p.priority) for p in self.procesos]
+        procesos_copia.append(nuevo_proceso)
+
+        algoritmo_seleccionado = self.algoritmo_seleccionado.get()
+
+        if algoritmo_seleccionado == "Round Robin":
+            round_robin(procesos_copia, 2, self.completados, self.queue)
+        elif algoritmo_seleccionado == "SJF":
+            sjf(procesos_copia, self.completados, self.queue)
+        elif algoritmo_seleccionado == "FIFO":
+            fifo(procesos_copia, self.completados, self.queue)
+        elif algoritmo_seleccionado == "Prioridades":
+            prioridades(procesos_copia, self.completados, self.queue)
 
 if __name__ == "__main__":
     root = tk.Tk()
